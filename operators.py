@@ -11,7 +11,7 @@ def convertTimeToSecond(dateTime: str) -> int:
 class Vehicle:
     def __init__(self, startHub: int, timeStart: int, timeEnd: int,
                  capacity: float, volume: float, velocity: float) -> None:
-        self.startHub = int(startHub)
+        self.startHub = int(startHub) - 1
         self.timeStart = convertTimeToSecond(timeStart)
         self.timeEnd = convertTimeToSecond(timeEnd)
         self.capacity = float(capacity)
@@ -24,8 +24,8 @@ class Request:
                  volume, pickupLoading, deliveryLoading,
                  pickupTimeStart, pickupTimeEnd, deliveryTimeStart,
                  deliveryTimeEnd) -> None:
-        self.pickupIdHub = int(pickupIdHub)
-        self.deliveryIdHub = int(deliveryIdHub)
+        self.pickupIdHub = int(pickupIdHub) - 1
+        self.deliveryIdHub = int(deliveryIdHub) - 1
         self.weight = float(weight)
         self.volume = float(volume)
         self.pickupLoading = int(pickupLoading)
@@ -56,15 +56,18 @@ class RouteNode:
                  requestProcessStatus: list,
                  timeCome: int,
                  timeGo: int,
-                 timeRequestProcessing: list[list[int]] = None,
-                 statusRequestOfVehicleCome: list[int] = None,
+                 timeRequestProcessing: dict = dict(),
+                 nextMissionOfVehicle: list[int] = list(),
                  ) -> None:
         self.idHub = idHub
-        self.requestProcessStatus = requestProcessStatus
         self.timeCome = timeCome
         self.timeGo = timeGo
+        self.requestProcessStatus = requestProcessStatus
         self.timeRequestProcessing = timeRequestProcessing
-        self.statusRequestOfVehicleCome = statusRequestOfVehicleCome
+        self.nextMissionOfVehicle = nextMissionOfVehicle
+
+    def  __repr__(self) -> str:
+        return f"{self.idHub + 1} \n {self.requestProcessStatus} \n {self.timeCome} \n {self.timeGo} \n {self.timeRequestProcessing} \n {self.nextMissionOfVehicle}"
 
 class Route:
     """_summary_
@@ -87,14 +90,15 @@ WEIGHTOFTIME = 1/10**3
 def totalCostFuction(routeList: list[Route],
                      quantityOfRequest: int, 
                      quantityOfVehicle: int) -> int:
-    totalCost, costTime, numberOfVehicleServe = 0
+    totalCost = 0
+    costTime = 0
     numberOfVehicleServe = 0
     listOrderServe = set()
     
     for routeObject in routeList:
         numberOfVehicleServe += 1
-        costTime += routeObject.timeEnd - routeObject.timeStart
-        for order in routeObject.idxRequestList:
+        costTime += routeObject.routeNodeList[-1].timeCome - routeObject.routeNodeList[0].timeCome
+        for order in routeObject.requestProcessed:
             listOrderServe.add(order)
 
     totalCost += WEIGHTOFREQUEST*len(listOrderServe)/quantityOfRequest
@@ -113,27 +117,15 @@ class Solution():
         self.locationOfVehicle: list = locationOfVehicle
         self.costFuction = None
 
-    def updateInfoClusters(self, dataModel, weightClusterSolution, distanceMatrix):
-        self.locationOfProcessingRequest = self.getInfoClusters(
-            dataModel, weightClusterSolution, distanceMatrix)
-
     def updateCostFuction(self, dataModel: DataModel):
         quantityOfRequest = len(dataModel.requestList) - 1
         quantityOfVehicle = len(dataModel.vehicleList)
-        self.costFuction = totalCostFuction(self.locationOfProcessingRequest)
-
-    # def updateSolution(self, dataModel, weightClusterSolution, distanceMatrix):
-    #     self.updateInfoClusters(
-    #         dataModel, weightClusterSolution, distanceMatrix)
-    #     self.updateCostFuction()
-    #     self.updatePositionOfRequests()
+        self.costFuction = totalCostFuction(self.routeList, 
+                                            quantityOfRequest, 
+                                            quantityOfVehicle)
 
     def objective(self):
         return self.costFuction
 
     def __copy__(self):
         return self.__class__(deepcopy(self.routeList))
-
-
-    # def updatePositionOfRequests(self):
-    #     self.positionOfPoint = positionOfPoint(self.solutionList)
