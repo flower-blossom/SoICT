@@ -36,38 +36,6 @@ from random import choice
 
 # def estimateFesibleRoute(routeNode : Route, ) -> bool:
 
-# def waitToNewRequest(newRoute: Route,
-#                   requestIndex: list[int],
-#                   requestList: list[Request],
-#                   queueOfRequest: list[int],
-#                   distanceMatrix: ndarray, ) -> bool:
-#     vehicleObject = newRoute.vehicleObject
-#     velocityVehicle = vehicleObject.velocity
-#     timeEndVehicle = vehicleObject.timeEnd
-#     temporaryNode = deepcopy(newRoute.routeNodeList[-1])
-
-#     statusOfVehicleCome = temporaryNode.statusOfVehicleCome
-#     statusOfVehicleGo = temporaryNode.statusOfVehicleGo
-
-#     for requestIdx in requestIndex:
-#         requestObject = requestList[requestIdx]
-
-#         if temporaryNode.currentHub == requestObject.sendIdHub:
-#             movingTime = 0
-#             # các điều kiện thỏa mãn ràng buộc hàng
-#             waitingTime = requestObject.sendTimeStart -
-#             estimateUsingTime = abs(
-#                 timeStartVehicle + movingTime - requestObject.sendTimeStart)
-
-#             distance = distanceMatrix[startHub, requestObject.sendIdHub]
-
-#         estimateFesibleRoute()
-
-#         queueOfRequest.append(requestIsSelectedIdx)
-#         requestIndex.remove(requestIsSelectedIdx)
-
-
-#     return False
 
 def estimateTimeMoving(distance: int, velocity: int) -> int:
     return int(distance/velocity*3600)
@@ -138,7 +106,6 @@ class Greedy:
     def newStatusRequestOfVehicleCome(self,
                                       nextMissionOfVehicle: list[int],
                                       requestProcessStatus: list[int]) -> list:
-        # [-3, 4] , [-3] => [-4]
         tempList = nextMissionOfVehicle.copy()
         for element in requestProcessStatus:
             if element > 0:
@@ -179,7 +146,7 @@ class Greedy:
                 movingTime = estimateTimeMoving(
                     distanceMatrix[currentHub, pickupIdHub], velocity)
             timeToComeNewHub = startTime + movingTime
-            if timeToComeNewHub < requestObject.deliveryTimeEnd:
+            if timeToComeNewHub < requestObject.pickupTimeEnd:
                 estimateUsingTime = abs(
                     timeToComeNewHub - requestObject.pickupTimeStart)
                 if estimateUsingTime < minTimeDifference:
@@ -330,7 +297,7 @@ class Greedy:
             if stopCondition is False:
                 break
         self.addLastNode(newRoute, distanceMatrix)
-        newRoute.requestProcessed = self.orderOfRequest.copy()
+        newRoute.orderOfRequestProcessed = self.orderOfRequest.copy()
         self.orderOfRequest.clear()
         return newRoute
 
