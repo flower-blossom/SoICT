@@ -8,9 +8,10 @@ b = [30, 40, 50]
 #     c.insert(i, "1000")
 #     print(c)
     # c.pop(i)
-temp = 10
-c = [10, 20, 30, 40, 50]
-print(c.index(30))
-c.insert(c.index(30), "1000")
-print(c)
-      
+# temp = 10
+# c = [10, 20, 30, 40, 50]
+# print(c.index(30))
+# c.insert(c.index(30), "1000")
+# print(c)
+mydict = {'a':'1','b':'2'}
+print(mydict["a"]      )

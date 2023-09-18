@@ -20,7 +20,7 @@ def convertSecondsToHours(seconds):
 def createInfoVehicle(vehicleInfo: str) -> dict:
     infoList = vehicleInfo.split()
     infoDict = {
-        "startIdHub": int(infoList[0]),
+        "startIdHub": int(infoList[0]) - 1,
         "startTime": convertTimeToSecond(infoList[1]),
         "endTime": convertTimeToSecond(infoList[2]),
         "capacity": float(infoList[3]),
@@ -33,14 +33,14 @@ def createInfoVehicle(vehicleInfo: str) -> dict:
 def createInfoRequest(requestInfo: str) -> dict:
     infoList = requestInfo.split()
     infoDict = {
-        "pickupIdHub": int(infoList[0]),
-        "deliveryIdHub": int(infoList[1]),
+        "pickupIdHub": int(infoList[0]) - 1,
+        "deliveryIdHub": int(infoList[1]) - 1,
         "weight": float(infoList[2]),
         "volume": float(infoList[3]),
         "pickupLoadingTime": int(infoList[4]),
         "deliveryLoadingTime": int(infoList[5]),
-        "pickupTime": (convertTimeToSecond(infoList[6]), convertTimeToSecond(infoList[7])),
-        "deliveryTime": (convertTimeToSecond(infoList[8]), convertTimeToSecond(infoList[9])),
+        "pickupTime": [convertTimeToSecond(infoList[6]), convertTimeToSecond(infoList[7])],
+        "deliveryTime": [convertTimeToSecond(infoList[8]), convertTimeToSecond(infoList[9])],
     }
     return infoDict
 

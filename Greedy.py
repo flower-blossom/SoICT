@@ -19,14 +19,14 @@ def conflictVehicleCapacity(vehicleDict: dict, sequenceRequestProcessed: int, re
     for statusRequest in sequenceRequestProcessed:
         requestDict = requestList[abs(statusRequest)]
         if statusRequest > 0:
-            currentCapacity += requestDict["capacity"]
+            currentCapacity += requestDict["weight"]
             currentVolume += requestDict["volume"]
         else:
-            currentCapacity -= requestDict["capacity"]
+            currentCapacity -= requestDict["weight"]
             currentVolume -= requestDict["volume"]
         if currentVolume > vehicleVolume or currentCapacity > vehicleCapacity:
-            return False
-    return True
+            return True
+    return False
 
 
 def estimateTimeMoving(distance: int, velocity: int) -> int:
@@ -79,7 +79,7 @@ class Greedy:
                     candidateVehicle: list[int],
                     vehicleList: list[dict],
                     locationOfVehicle: list,
-                    numberOfRoute: int) -> int:
+                    numberOfRoute: int) -> dict:
         vehiclePicked = choice(candidateVehicle)
         candidateVehicle.remove(vehiclePicked)
         vehicleObject = vehicleList[vehiclePicked]
@@ -87,50 +87,50 @@ class Greedy:
         return vehicleObject
 
     def addFirstNodeRoute(self, newRoute: Route,) -> NoReturn:
-        vehicleObject = newRoute.vehicleObject
-        startVehicleNode = RouteNode(idHub=vehicleObject.startHub,
-                                     timeCome=vehicleObject.timeStart,
-                                     timeGo=vehicleObject.timeStart,
+        vehicleDict = newRoute.vehicleDict
+        startVehicleNode = RouteNode(idHub=vehicleDict["startIdHub"],
+                                     timeCome=vehicleDict["startTime"],
+                                     timeGo=vehicleDict["startTime"],
                                      requestProcessStatus=[],
                                      timeRequestProcessing=dict(),)
         newRoute.routeNodeList.append(startVehicleNode)
 
     def addEndNode(self, routeNodeList: list, vehicleInfoDict: dict, distanceMatrix: ndarray) -> NoReturn:
         lastNode = routeNodeList[-1]
-        startHub = vehicleInfoDict["startHub"]
+        startHub = vehicleInfoDict["startIdHub"]
         if startHub != lastNode.idHub:
             distance = distanceMatrix[lastNode.idHub, startHub]
             movingTime = estimateTimeMoving(
                 distance, vehicleInfoDict["velocity"])
             timeToComeBackHub = lastNode.timeGo + movingTime
-            comeBackNode = RouteNode(startHub, [], timeToComeBackHub, timeToComeBackHub,
-                                     timeRequestProcessing=dict(), nextMissionOfVehicle=[])
+            comeBackNode = RouteNode(startHub, timeToComeBackHub, timeToComeBackHub, [],
+                                     timeRequestProcessing=dict())
             routeNodeList.append(comeBackNode)
 
     def checkValidTimePartRoute(self, nextOrderOfRequest: list, lastNode: RouteNode,
-                                vehicleDict: dict, requestList: list, distanceMatrix: list):
+                                vehicleDict: dict, requestList: list, distanceMatrix: list) -> (bool, list):
 
         tempRoute = [deepcopy(lastNode)]
         endTimeVehicle = vehicleDict["endTime"]
-
+        lastNode = tempRoute[-1]
         for statusRequest in nextOrderOfRequest:
-            lastNode = tempRoute.routeNodeList[-1]
             self.processRequest(statusRequest, lastNode, tempRoute,
                                 vehicleDict, requestList, distanceMatrix)
+            lastNode = tempRoute[-1]
             if isSmallerEqualNumber(lastNode.timeGo, endTimeVehicle) is False:
                 return False, None
             if self.performTheProcessRequest(lastNode, requestList) is False:
                 return False, None
 
         self.addEndNode(tempRoute, vehicleDict, distanceMatrix)
+        # self.processRequest(statusRequest, lastNode, tempRoute,
+        #                         vehicleDict, requestList, distanceMatrix)
         return isSmallerEqualNumber(tempRoute[-1].timeGo, endTimeVehicle), tempRoute
 
-    # def createRoute(self, nextOrderOfRequest: list, lastNode: RouteNode,
-    #                 vehicleDict: dict, requestList: list, distanceMatrix: list) -> NoReturn:
-
-    def calculateWaitTime(self, route: Route) -> int:
+    def calculateWaitTime(self, routeNodeList: list) -> int:
         """ Return time using vehicle"""
-        routeNodeList = route.routeNodeList
+
+        # routeNodeList = route.routeNodeList
         waitTime = 0
         movingTime = 0
         for idxNode in range(len(routeNodeList), - 1):
@@ -148,18 +148,19 @@ class Greedy:
     def findPlaceToInsert(self,
                           statusRequest: int,
                           orderOfRequestProcessed: list,
-                          routeNodeList: RouteNode, vehicleDict: dict, requestList: list, distanceMatrix: list) -> bool:
+                          routeNodeList: RouteNode, vehicleDict: dict, requestList: list, distanceMatrix: list):
         lastNode = routeNodeList[-1]
         minUsingTime = float("inf")
         idxToInsert = -1
         startIdx = 0
+
         if statusRequest < 0:
             startIdx = orderOfRequestProcessed.index(abs(statusRequest)) + 1
-            
+
         # index of delivery < index pickup
-        for index in range(startIdx,len(orderOfRequestProcessed) + 1):
+        for index in range(startIdx, len(orderOfRequestProcessed) + 1):
             orderOfRequestProcessed.insert(index, statusRequest)
-            if conflictVehicleCapacity(vehicleDict, orderOfRequestProcessed) is False:
+            if conflictVehicleCapacity(vehicleDict, orderOfRequestProcessed, requestList) is False:
                 conditionRoute, tempRoute = self.checkValidTimePartRoute(orderOfRequestProcessed,
                                                                          lastNode,
                                                                          vehicleDict,
@@ -171,7 +172,7 @@ class Greedy:
                         minUsingTime = usingTime
                         idxToInsert = index
             orderOfRequestProcessed.pop(index)
-        orderOfRequestProcessed.insert(idxToInsert, statusRequest)
+        return idxToInsert, minUsingTime
 
     def addNewRequest(self,
                       route: Route,
@@ -180,25 +181,41 @@ class Greedy:
                       requestList: list,
                       distanceMatrix: ndarray) -> bool:
         """
-        add new request 
+        try to add new request 
         """
         routeNodeList = route.routeNodeList
         orderOfRequestProcessed = route.orderOfRequestProcessed
-
+        
         # Tổng thời gian di chuyển và chờ đợi = thời gian sử dụng
+        stopCondition = False
+        minCost = float("inf")
+        selectedRequest = -1
+        idxInsertPickUp = 0
+        idxInsertDelivery = 0
         for requestIdx in requestIndexCandidate:
             pickupStatus = requestIdx
             deliveryStatus = -requestIdx
 
             # try to insert pickup request
-            self.findPlaceToInsert(pickupStatus, orderOfRequestProcessed, routeNodeList,
-                                   vehicleDict, requestList, distanceMatrix)
-            
-            # try to insert delivery request          
-            self.findPlaceToInsert(deliveryStatus, orderOfRequestProcessed, routeNodeList,
-                                   vehicleDict, requestList, distanceMatrix)
+            idxPickUp, _ = self.findPlaceToInsert(pickupStatus, orderOfRequestProcessed, routeNodeList,
+                                                  vehicleDict, requestList, distanceMatrix)
+            if idxPickUp != -1:
+                orderOfRequestProcessed.insert(idxPickUp, pickupStatus)
+                # try to insert delivery request
+                idxDelivery, cost = self.findPlaceToInsert(deliveryStatus, orderOfRequestProcessed, routeNodeList,
+                                                           vehicleDict, requestList, distanceMatrix)
+                orderOfRequestProcessed.pop(idxPickUp)
+                if cost < minCost:
+                    selectedRequest = requestIdx
+                    idxInsertPickUp = idxPickUp
+                    idxInsertDelivery = idxDelivery
+                    minCost = cost
 
-        print("hookup pickupNewRequest")
+        if selectedRequest == -1: 
+            return stopCondition
+        requestIndexCandidate.remove(selectedRequest)
+        orderOfRequestProcessed.insert(idxInsertPickUp, selectedRequest)
+        orderOfRequestProcessed.insert(idxInsertDelivery, -selectedRequest)
 
     def processRequest(self,
                        statusRequest: int,
@@ -216,9 +233,9 @@ class Greedy:
 
         nextHub = 0
         if statusRequest > 0:
-            nextHub = requestObject.pickupIdHub
+            nextHub = requestObject["pickupIdHub"]
         if statusRequest < 0:
-            nextHub = requestObject.deliveryIdHub
+            nextHub = requestObject["deliveryIdHub"]
 
         if nextHub == currentHub:
             # add request to last node
@@ -242,7 +259,6 @@ class Greedy:
         Try to update time to delivery or pickup request and time 
         to go out current hub 
         """
-
         requestProcessStatus = node.requestProcessStatus
         timeRequestProcessing = node.timeRequestProcessing
         timeCome = node.timeCome
@@ -261,14 +277,14 @@ class Greedy:
                         timeCome, requestInfoDict["pickupTime"][0])
                     if isSmallerEqualNumber(startProcessTime, requestInfoDict["pickupTime"][1]) is False:
                         return False
-                    loadingTime = requestInfoDict.pickupLoading
+                    loadingTime = requestInfoDict["pickupLoadingTime"]
                 else:
                     # delivery request
                     startProcessTime = takeMax(
                         timeCome, requestInfoDict["deliveryTime"][0])
                     if isSmallerEqualNumber(startProcessTime, requestInfoDict["deliveryTime"][1]) is False:
                         return False
-                    loadingTime = requestInfoDict.deliveryLoading
+                    loadingTime = requestInfoDict["deliveryLoadingTime"]
             else:
 
                 lastTimeRequest = lastTimeProcessRequest(timeRequestProcessing)
@@ -278,14 +294,14 @@ class Greedy:
                         lastTimeRequest, requestInfoDict["pickupTime"][0])
                     if isSmallerEqualNumber(startProcessTime, requestInfoDict["pickupTime"][1]) is False:
                         return False
-                    loadingTime = requestInfoDict.pickupLoading
+                    loadingTime = requestInfoDict["pickupLoadingTime"]
                 else:
                     # delivery request
                     startProcessTime = takeMax(
                         lastTimeRequest, requestInfoDict["deliveryTime"][0])
                     if isSmallerEqualNumber(startProcessTime, requestInfoDict["deliveryTime"][1]) is False:
                         return False
-                    loadingTime = requestInfoDict.deliveryLoading
+                    loadingTime = requestInfoDict["deliveryLoadingTime"]
             endProcessTime = startProcessTime + loadingTime
 
             timeRequestProcessing[requestStatusIdx] = [
@@ -294,52 +310,57 @@ class Greedy:
         node.timeGo = lastTimeAction
         return True
 
-    def addNextMove(self,
-                    newRoute: Route,
-                    requestIndexCandidate: list[int],
-                    requestList: list[dict],
-                    distanceMatrix: ndarray) -> bool:
+    # def addNextMove(self,
+    #                 newRoute: Route,
+    #                 requestIndexCandidate: list[int],
+    #                 requestList: list[dict],
+    #                 distanceMatrix: ndarray) -> bool:
 
-        vehicleObject = newRoute.vehicleObject
-        routeNodeList = newRoute.routeNodeList
-        lastNode: RouteNode = routeNodeList[-1]
-        stopCondition = True
-        stopCondition = self.pickupNewRequest(lastNode,
-                                              vehicleObject,
-                                              requestIndexCandidate,
-                                              requestList,
-                                              distanceMatrix,)
+    #     vehicleObject = newRoute.vehicleObject
+    #     routeNodeList = newRoute.routeNodeList
+    #     lastNode: RouteNode = routeNodeList[-1]
+    #     stopCondition = True
+    #     stopCondition = self.pickupNewRequest(lastNode,
+    #                                           vehicleObject,
+    #                                           requestIndexCandidate,
+    #                                           requestList,
+    #                                           distanceMatrix,)
 
-        if len(lastNode.nextMissionOfVehicle) == 0:
-            stopCondition = self.pickupNewRequest(lastNode,
-                                                  vehicleObject,
-                                                  requestIndexCandidate,
-                                                  requestList,
-                                                  distanceMatrix,)
-            self.performTheProcessRequest(lastNode, requestList)
-        else:
-            self.processRequest(lastNode, routeNodeList, vehicleObject,
-                                requestList, distanceMatrix)
-            self.performTheProcessRequest(lastNode, requestList)
-            stopCondition = True
+    #     if len(lastNode.nextMissionOfVehicle) == 0:
+    #         stopCondition = self.pickupNewRequest(lastNode,
+    #                                               vehicleObject,
+    #                                               requestIndexCandidate,
+    #                                               requestList,
+    #                                               distanceMatrix,)
+    #         self.performTheProcessRequest(lastNode, requestList)
+    #     else:
+    #         self.processRequest(lastNode, routeNodeList, vehicleObject,
+    #                             requestList, distanceMatrix)
+    #         self.performTheProcessRequest(lastNode, requestList)
+    #         stopCondition = True
 
-        return stopCondition
+    #     return stopCondition
 
     def getNewRoute(self,
-                    vehicleObject: dict,
+                    vehicleDict: dict,
                     requestInfoList: list[dict],
                     candidateRequests: list[int],
                     distanceMatrix: ndarray) -> Route:
-        newRoute = Route(list(), vehicleObject, list())
+        newRoute = Route(list(), vehicleDict, list())
         self.addFirstNodeRoute(newRoute)
 
         while True:
-            stopCondition = self.addNewRequest(newRoute, candidateRequests,
+            stopCondition = self.addNewRequest(newRoute, vehicleDict, candidateRequests,
                                                requestInfoList, distanceMatrix)
 
             if stopCondition is False:
                 break
-        self.addEndNode(newRoute, distanceMatrix)
+        _, newRoute.routeNodeList = self.checkValidTimePartRoute(newRoute.orderOfRequestProcessed,
+                                                                 newRoute.routeNodeList[-1],
+                                                                 vehicleDict,
+                                                                 requestInfoList,
+                                                                 distanceMatrix)
+        # self.addEndNode(newRoute, distanceMatrix)
         return newRoute
 
     def main(self,

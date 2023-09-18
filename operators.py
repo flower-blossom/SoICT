@@ -26,7 +26,7 @@ class RouteNode:
                  requestProcessStatus: list,
                  timeRequestProcessing: dict = dict(),
                  ) -> None:
-        self.idHub = idHub
+        self.idHub = idHub - 1
         self.timeCome = timeCome
         self.timeGo = timeGo
         self.requestProcessStatus = requestProcessStatus
