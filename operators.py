@@ -21,18 +21,16 @@ class DataModel:
 class RouteNode:
     def __init__(self,
                  idHub: int,
-                 requestProcessStatus: list,
                  timeCome: int,
                  timeGo: int,
+                 requestProcessStatus: list,
                  timeRequestProcessing: dict = dict(),
-                #  nextMissionOfVehicle: list[int] = list(),
                  ) -> None:
         self.idHub = idHub
         self.timeCome = timeCome
         self.timeGo = timeGo
         self.requestProcessStatus = requestProcessStatus
         self.timeRequestProcessing = timeRequestProcessing
-        # self.nextMissionOfVehicle = nextMissionOfVehicle
 
     def  __repr__(self) -> str:
         return f"{self.idHub + 1} \n {self.requestProcessStatus} \n {self.timeCome} \n {self.timeGo} \n {self.timeRequestProcessing} \n {self.nextMissionOfVehicle}"
@@ -44,10 +42,11 @@ class Route:
     def __init__(self,
                  routeNodeList: list[RouteNode],
                  vehicleDict: dict,
-                 orderOfRequestProcessed: list[int][2]) -> None:
+                 orderOfRequestProcessed: list = []):
         self.routeNodeList = routeNodeList
         self.vehicleDict = vehicleDict
         self.orderOfRequestProcessed = orderOfRequestProcessed
+        self.locationOfProcessRequest: list = None
 
 
 WEIGHTOFREQUEST = 10**9

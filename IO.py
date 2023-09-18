@@ -85,8 +85,8 @@ def readInputFile(data: list[str]):
     return DataModel(distanceMatrix, vehicleList, orderList)
 
 
-def writeVehicleNotUse(vehicle: Vehicle):
-    time = convertSecondsToHours(vehicle.timeStart)
+def writeVehicleNotUse(vehicle: dict):
+    time = convertSecondsToHours(vehicle["startTime"])
     print(1)
     print(f"{vehicle.startHub} {time} {time}")
 
