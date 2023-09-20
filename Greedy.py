@@ -61,7 +61,7 @@ def isSmallerEqualNumber(firstNumber: int, secondNumber: int) -> int:
     return firstNumber <= secondNumber
 
 
-def takeMax(firstNumber: int, secondNumber: int) -> int:
+def takeTimeStart(firstNumber: int, secondNumber: int) -> int:
     """ Return time to start process request"""
     if firstNumber > secondNumber:
         return firstNumber
@@ -273,14 +273,14 @@ class Greedy:
                 # is first request process
                 if requestStatusIdx > 0:
                     # pickUp request
-                    startProcessTime = takeMax(
+                    startProcessTime = takeTimeStart(
                         timeCome, requestInfoDict["pickupTime"][0])
                     if isSmallerEqualNumber(startProcessTime, requestInfoDict["pickupTime"][1]) is False:
                         return False
                     loadingTime = requestInfoDict["pickupLoadingTime"]
                 else:
                     # delivery request
-                    startProcessTime = takeMax(
+                    startProcessTime = takeTimeStart(
                         timeCome, requestInfoDict["deliveryTime"][0])
                     if isSmallerEqualNumber(startProcessTime, requestInfoDict["deliveryTime"][1]) is False:
                         return False
@@ -290,14 +290,14 @@ class Greedy:
                 lastTimeRequest = lastTimeProcessRequest(timeRequestProcessing)
                 if requestStatusIdx > 0:
                     # pickUp request
-                    startProcessTime = takeMax(
+                    startProcessTime = takeTimeStart(
                         lastTimeRequest, requestInfoDict["pickupTime"][0])
                     if isSmallerEqualNumber(startProcessTime, requestInfoDict["pickupTime"][1]) is False:
                         return False
                     loadingTime = requestInfoDict["pickupLoadingTime"]
                 else:
                     # delivery request
-                    startProcessTime = takeMax(
+                    startProcessTime = takeTimeStart(
                         lastTimeRequest, requestInfoDict["deliveryTime"][0])
                     if isSmallerEqualNumber(startProcessTime, requestInfoDict["deliveryTime"][1]) is False:
                         return False

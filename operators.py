@@ -1,10 +1,19 @@
-from copy import deepcopy
 from typing import NoReturn
 from copy import deepcopy
 from random import choice, seed
 import time
-seed(2)
+seed(1)
 
+def isSmallerEqualNumber(firstNumber: int, secondNumber: int) -> int:
+    return firstNumber <= secondNumber
+
+
+def takeTimeStart(currentTime: int, time: int) -> int:
+    """ Return time to start process request"""
+    if currentTime > time:
+        return currentTime, 0
+    else:
+        return time, time - currentTime
 
 class DataModel:
     """
@@ -26,7 +35,7 @@ class RouteNode:
                  timeCome: int,
                  timeGo: int,
                  requestProcessStatus: list,
-                 timeRequestProcessing: dict = dict(),
+                 timeRequestProcessing=list(),
                  ) -> None:
         self.idHub = idHub
         self.timeCome = timeCome
@@ -34,8 +43,9 @@ class RouteNode:
         self.requestProcessStatus = requestProcessStatus
         self.timeRequestProcessing = timeRequestProcessing
 
-    def  __repr__(self) -> str:
-        return f"{self.idHub + 1} \n {self.requestProcessStatus} \n {self.timeCome} \n {self.timeGo} \n {self.timeRequestProcessing} \n {self.nextMissionOfVehicle}"
+    def __repr__(self) -> str:
+        return f"idHub: {self.idHub + 1} \n requestProcessStatus: {self.requestProcessStatus} \n {self.timeCome} \n {self.timeGo} \n timeRequestProcessing: {self.timeRequestProcessing} "
+
 
 class Route:
     """_summary_
@@ -57,16 +67,23 @@ WEIGHTOFVEHICLE = 10**6
 WEIGHTOFTIME = 1/10**3
 
 
+def updateRequestProcess(routeList: list) -> NoReturn:
+    for routeObject in routeList:
+        for order in routeObject.orderOfRequestProcessed:
+            routeObject.requestProcess.add(abs(order))
+
+
 def totalCostFuction(routeList: list,
-                     quantityOfRequest: int, 
+                     quantityOfRequest: int,
                      quantityOfVehicle: int) -> int:
     totalCost = 0
     costTime = 0
     numberOfVehicleServe = 0
     listOrderServe = set()
-    
+
     for routeObject in routeList:
-        costTime += routeObject.routeNodeList[-1].timeCome - routeObject.routeNodeList[0].timeCome
+        costTime += routeObject.routeNodeList[-1].timeCome - \
+            routeObject.routeNodeList[0].timeCome
         numberOfVehicleServe += 1
         for order in routeObject.orderOfRequestProcessed:
             listOrderServe.add(abs(order))
@@ -76,7 +93,6 @@ def totalCostFuction(routeList: list,
     totalCost -= WEIGHTOFTIME*costTime
     return totalCost
 
-# def updateRequestProcess(route, ):
 
 class Solution():
     """
@@ -86,22 +102,20 @@ class Solution():
         self.routeList = routeList
         self.positionOfProcessingRequest: list = None
         self.locationOfVehicle: list = locationOfVehicle
-        # self.partOfCost = list()
-        self.costFuction = None
+        self.weightOfCost = dict()
+        self.costFuction = 0
 
     def updateCostFuction(self, dataModel: DataModel):
         quantityOfRequest = len(dataModel.requestList) - 1
         quantityOfVehicle = len(dataModel.vehicleList)
-        self.costFuction = totalCostFuction(self.routeList, 
-                                            quantityOfRequest, 
+        self.weightOfCost["request"] = WEIGHTOFREQUEST/quantityOfRequest
+        self.weightOfCost["vehicle"] = WEIGHTOFVEHICLE/quantityOfVehicle
+        self.costFuction = totalCostFuction(self.routeList,
+                                            quantityOfRequest,
                                             quantityOfVehicle)
-
 
     def objective(self):
         return self.costFuction
-
-    def __copy__(self):
-        return self.__class__(deepcopy(self.routeList))
 
 
 def conflictVehicleCapacity(vehicleDict: dict, sequenceRequestProcessed: int, requestList: list) -> bool:
@@ -126,371 +140,474 @@ def conflictVehicleCapacity(vehicleDict: dict, sequenceRequestProcessed: int, re
 def estimateTimeMoving(distance: int, velocity: int) -> int:
     return int(distance/velocity*3600)
 
-
-def lastTimeProcessRequest(timeRequestProcessing: dict) -> int:
-    """ Take late time to process request in node
-
-    Args:
-        timeRequestProcessing (dict): dict contain time to process requests in node
-
-    Returns:
-        int: previous time to process
-    """
-    maxTime = 0
-    for time in timeRequestProcessing.values():
-        endTimeProcess = time[1]
-        if endTimeProcess > maxTime:
-            maxTime = endTimeProcess
-    return maxTime
+def pickVehicle(candidateVehicle: list,
+                vehicleList: list,
+                locationOfVehicle: list,
+                numberOfRoute: int) -> dict:
+    vehiclePicked = choice(candidateVehicle)
+    candidateVehicle.remove(vehiclePicked)
+    vehicleObject = vehicleList[vehiclePicked]
+    locationOfVehicle[vehiclePicked] = numberOfRoute
+    return vehicleObject
 
 
-def isSmallerEqualNumber(firstNumber: int, secondNumber: int) -> int:
-    return firstNumber <= secondNumber
+def addFirstNodeRoute(newRoute: Route,) -> NoReturn:
+    vehicleDict = newRoute.vehicleDict
+    startVehicleNode = RouteNode(idHub=vehicleDict["startIdHub"],
+                                 timeCome=vehicleDict["startTime"],
+                                 timeGo=vehicleDict["startTime"],
+                                 requestProcessStatus=[],
+                                 timeRequestProcessing=list(),)
+    newRoute.routeNodeList.append(startVehicleNode)
 
 
-def takeMax(firstNumber: int, secondNumber: int) -> int:
-    """ Return time to start process request"""
-    if firstNumber > secondNumber:
-        return firstNumber
-    else:
-        return secondNumber
+def addEndNode(routeNodeList: list, vehicleInfoDict: dict, distanceMatrix: list) -> NoReturn:
+    lastNode = routeNodeList[-1]
+    startHub = vehicleInfoDict["startIdHub"]
+    if startHub != lastNode.idHub:
+        distance = distanceMatrix[lastNode.idHub][startHub]
+        movingTime = estimateTimeMoving(
+            distance, vehicleInfoDict["velocity"])
+        timeToComeBackHub = lastNode.timeGo + movingTime
+        comeBackNode = RouteNode(startHub, timeToComeBackHub, timeToComeBackHub, [],
+                                 timeRequestProcessing=dict())
+        routeNodeList.append(comeBackNode)
 
 
-class Greedy:
-
-    def __init__(self, ) -> None:
-        # self.orderOfRequest: list = list()
-        pass
-
-    def pickVehicle(self,
-                    candidateVehicle: list,
-                    vehicleList: list,
-                    locationOfVehicle: list,
-                    numberOfRoute: int) -> dict:
-        vehiclePicked = choice(candidateVehicle)
-        candidateVehicle.remove(vehiclePicked)
-        vehicleObject = vehicleList[vehiclePicked]
-        locationOfVehicle[vehiclePicked] = numberOfRoute
-        return vehicleObject
-
-    def addFirstNodeRoute(self, newRoute: Route,) -> NoReturn:
-        vehicleDict = newRoute.vehicleDict
-        startVehicleNode = RouteNode(idHub=vehicleDict["startIdHub"],
-                                     timeCome=vehicleDict["startTime"],
-                                     timeGo=vehicleDict["startTime"],
-                                     requestProcessStatus=[],
-                                     timeRequestProcessing=dict(),)
-        newRoute.routeNodeList.append(startVehicleNode)
-
-    def addEndNode(self, routeNodeList: list, vehicleInfoDict: dict, distanceMatrix: list) -> NoReturn:
-        lastNode = routeNodeList[-1]
-        startHub = vehicleInfoDict["startIdHub"]
-        if startHub != lastNode.idHub:
-            distance = distanceMatrix[lastNode.idHub][startHub]
-            movingTime = estimateTimeMoving(
-                distance, vehicleInfoDict["velocity"])
-            timeToComeBackHub = lastNode.timeGo + movingTime
-            comeBackNode = RouteNode(startHub, timeToComeBackHub, timeToComeBackHub, [],
-                                     timeRequestProcessing=dict())
-            routeNodeList.append(comeBackNode)
-
-    def checkValidTimePartRoute(self, nextOrderOfRequest: list, lastNode: RouteNode,
-                                vehicleDict: dict, requestList: list, distanceMatrix: list) -> (bool, list):
-
-        tempRoute = [deepcopy(lastNode)]
-        endTimeVehicle = vehicleDict["endTime"]
+def checkValidTimePartRoute(nextOrderOfRequest: list, lastNode: RouteNode,
+                            vehicleDict: dict, requestList: list, distanceMatrix: list) -> (bool, list):
+    usingTime = 0
+    tempRoute = [deepcopy(lastNode)]
+    endTimeVehicle = vehicleDict["endTime"]
+    lastNode = tempRoute[-1]
+    for statusRequest in nextOrderOfRequest:
+        usingTime += processRequest(statusRequest, lastNode, tempRoute,
+                                    vehicleDict, requestList, distanceMatrix)
         lastNode = tempRoute[-1]
-        for statusRequest in nextOrderOfRequest:
-            self.processRequest(statusRequest, lastNode, tempRoute,
-                                vehicleDict, requestList, distanceMatrix)
-            lastNode = tempRoute[-1]
-            if isSmallerEqualNumber(lastNode.timeGo, endTimeVehicle) is False:
-                return False, None
-            if self.performTheProcessRequest(lastNode, requestList) is False:
-                return False, None
+        if isSmallerEqualNumber(lastNode.timeGo, endTimeVehicle) is False:
+            return False, None, 0
+        stopCondition, waitTime = performTheProcessRequest(
+            lastNode, requestList)
+        if stopCondition is False:
+            return False, None, 0
+        usingTime += waitTime
+    addEndNode(tempRoute, vehicleDict, distanceMatrix)
+    
+    return isSmallerEqualNumber(tempRoute[-1].timeGo, endTimeVehicle), tempRoute, usingTime
 
-        self.addEndNode(tempRoute, vehicleDict, distanceMatrix)
-        # self.processRequest(statusRequest, lastNode, tempRoute,
-        #                         vehicleDict, requestList, distanceMatrix)
-        return isSmallerEqualNumber(tempRoute[-1].timeGo, endTimeVehicle), tempRoute
 
-    def calculateWaitTime(self, routeNodeList: list) -> int:
-        """ Return time using vehicle"""
+def findPlaceToInsert(statusRequest: int, orderOfRequestProcessed: list,
+                      routeNodeList: RouteNode, vehicleDict: dict,
+                      requestList: list, distanceMatrix: list):
+    lastNode = routeNodeList[-1]
+    minUsingTime = float("inf")
+    idxToInsert = -1
+    startIdx = 0
 
-        # routeNodeList = route.routeNodeList
-        waitTime = 0
-        movingTime = 0
-        for idxNode in range(len(routeNodeList), - 1):
-            node = routeNodeList[idxNode]
-            timeRequestProcessing = node.timeRequestProcessing
-            waitTime += node.timeCome - timeRequestProcessing[0][0]
-            for idx in range(len(timeRequestProcessing), - 1):
-                waitTime += abs(timeRequestProcessing[idx]
-                                [1]) - timeRequestProcessing[idx + 1][0]
+    if statusRequest < 0:
+        startIdx = orderOfRequestProcessed.index(abs(statusRequest)) + 1
 
-            movingTime += routeNodeList[idxNode + 1].timeCome - node.timeGo
+    # index of delivery < index pickup
+    for index in range(startIdx, len(orderOfRequestProcessed) + 1):
+        orderOfRequestProcessed.insert(index, statusRequest)
+        if conflictVehicleCapacity(vehicleDict, orderOfRequestProcessed, requestList) is False:
+            conditionRoute, _, usingTime = checkValidTimePartRoute(orderOfRequestProcessed,
+                                                                   lastNode,
+                                                                   vehicleDict,
+                                                                   requestList,
+                                                                   distanceMatrix)
+            if conditionRoute is True:
+                if usingTime < minUsingTime:
+                    minUsingTime = usingTime
+                    idxToInsert = index
+        orderOfRequestProcessed.pop(index)
+    return idxToInsert, minUsingTime
 
-        return waitTime + movingTime
 
-    def findPlaceToInsert(self,
-                          statusRequest: int,
-                          orderOfRequestProcessed: list,
-                          routeNodeList: RouteNode, vehicleDict: dict, requestList: list, distanceMatrix: list):
-        lastNode = routeNodeList[-1]
-        minUsingTime = float("inf")
-        idxToInsert = -1
-        startIdx = 0
+def addNewRequest(
+        route: Route,
+        vehicleDict: dict,
+        requestIndexCandidate: list,
+        requestList: list,
+        distanceMatrix: list) -> bool:
+    """
+    try to add new request 
+    """
 
-        if statusRequest < 0:
-            startIdx = orderOfRequestProcessed.index(abs(statusRequest)) + 1
+    routeNodeList = route.routeNodeList
+    orderOfRequestProcessed = route.orderOfRequestProcessed
 
-        # index of delivery < index pickup
-        for index in range(startIdx, len(orderOfRequestProcessed) + 1):
-            orderOfRequestProcessed.insert(index, statusRequest)
-            if conflictVehicleCapacity(vehicleDict, orderOfRequestProcessed, requestList) is False:
-                conditionRoute, tempRoute = self.checkValidTimePartRoute(orderOfRequestProcessed,
-                                                                         lastNode,
-                                                                         vehicleDict,
-                                                                         requestList,
-                                                                         distanceMatrix)
-                if conditionRoute is True:
-                    usingTime = self.calculateWaitTime(tempRoute)
-                    if usingTime < minUsingTime:
-                        minUsingTime = usingTime
-                        idxToInsert = index
-            orderOfRequestProcessed.pop(index)
-        return idxToInsert, minUsingTime
+    # Tổng thời gian di chuyển và chờ đợi = thời gian sử dụng
+    minCost = float("inf")
+    stopCondition = False
+    selectedRequest = -1
+    idxInsertPickUp = 0
+    idxInsertDelivery = 0
 
-    def addNewRequest(self,
-                      route: Route,
-                      vehicleDict: dict,
-                      requestIndexCandidate: list,
-                      requestList: list,
-                      distanceMatrix: list) -> bool:
-        """
-        try to add new request 
-        """
-        routeNodeList = route.routeNodeList
-        orderOfRequestProcessed = route.orderOfRequestProcessed
-        
-        # Tổng thời gian di chuyển và chờ đợi = thời gian sử dụng
-        stopCondition = False
-        minCost = float("inf")
-        selectedRequest = -1
-        idxInsertPickUp = 0
-        idxInsertDelivery = 0
-        for requestIdx in requestIndexCandidate:
-            pickupStatus = requestIdx
-            deliveryStatus = -requestIdx
+    for requestIdx in requestIndexCandidate:
+        pickupStatus = requestIdx
+        deliveryStatus = -requestIdx
 
-            # try to insert pickup request
-            idxPickUp, _ = self.findPlaceToInsert(pickupStatus, orderOfRequestProcessed, routeNodeList,
+        # try to insert pickup request
+        idxPickUp, _ = findPlaceToInsert(pickupStatus, orderOfRequestProcessed, routeNodeList,
+                                         vehicleDict, requestList, distanceMatrix)
+        if idxPickUp != -1:
+            orderOfRequestProcessed.insert(idxPickUp, pickupStatus)
+            # try to insert delivery request
+            idxDelivery, cost = findPlaceToInsert(deliveryStatus, orderOfRequestProcessed, routeNodeList,
                                                   vehicleDict, requestList, distanceMatrix)
-            if idxPickUp != -1:
-                orderOfRequestProcessed.insert(idxPickUp, pickupStatus)
-                # try to insert delivery request
-                idxDelivery, cost = self.findPlaceToInsert(deliveryStatus, orderOfRequestProcessed, routeNodeList,
-                                                           vehicleDict, requestList, distanceMatrix)
-                orderOfRequestProcessed.pop(idxPickUp)
-                if cost < minCost:
-                    selectedRequest = requestIdx
-                    idxInsertPickUp = idxPickUp
-                    idxInsertDelivery = idxDelivery
-                    minCost = cost
+            orderOfRequestProcessed.pop(idxPickUp)
+            if cost < minCost:
+                selectedRequest = requestIdx
+                idxInsertPickUp = idxPickUp
+                idxInsertDelivery = idxDelivery
+                minCost = cost
 
-        if selectedRequest == -1: 
-            return stopCondition
-        requestIndexCandidate.remove(selectedRequest)
-        orderOfRequestProcessed.insert(idxInsertPickUp, selectedRequest)
-        orderOfRequestProcessed.insert(idxInsertDelivery, -selectedRequest)
+    if selectedRequest == -1:
+        return stopCondition
+    requestIndexCandidate.remove(selectedRequest)
+    orderOfRequestProcessed.insert(idxInsertPickUp, selectedRequest)
+    orderOfRequestProcessed.insert(idxInsertDelivery, -selectedRequest)
 
-    def processRequest(self,
-                       statusRequest: int,
-                       lastNode: RouteNode,
-                       routeNodeList: list,
-                       vehicleInfoDict: dict,
-                       requestList: list,
-                       distanceMatrix: list) -> NoReturn:
-        """
-        Create node to process request
-        """
 
-        currentHub = lastNode.idHub
-        requestObject = requestList[abs(statusRequest)]
+def processRequest(
+        statusRequest: int,
+        lastNode: RouteNode,
+        routeNodeList: list,
+        vehicleInfoDict: dict,
+        requestList: list,
+        distanceMatrix: list) -> int:
+    """
+    Create node to process request
+    """
+    usingTime = 0
+    currentHub = lastNode.idHub
+    requestObject = requestList[abs(statusRequest)]
 
-        nextHub = 0
-        if statusRequest > 0:
-            nextHub = requestObject["pickupIdHub"]
-        if statusRequest < 0:
-            nextHub = requestObject["deliveryIdHub"]
+    nextHub = 0
+    if statusRequest > 0:
+        nextHub = requestObject["pickupIdHub"]
+    if statusRequest < 0:
+        nextHub = requestObject["deliveryIdHub"]
 
-        if nextHub == currentHub:
-            # add request to last node
-            lastNode.requestProcessStatus.append(statusRequest)
-        else:
-            # create and moving to new node
-            distance = distanceMatrix[currentHub][nextHub]
-            movingTime = estimateTimeMoving(
-                distance, vehicleInfoDict["velocity"])
-            timeGoToHub = lastNode.timeGo + movingTime
+    if nextHub == currentHub:
+        # add request to last node
+        lastNode.requestProcessStatus.append(statusRequest)
+    else:
+        # create and moving to new node
+        distance = distanceMatrix[currentHub][nextHub]
+        movingTime = estimateTimeMoving(
+            distance, vehicleInfoDict["velocity"])
+        timeGoToHub = lastNode.timeGo + movingTime
+        usingTime += timeGoToHub
+        newNode = RouteNode(idHub=nextHub,
+                            timeCome=timeGoToHub,
+                            timeGo=timeGoToHub,
+                            requestProcessStatus=[statusRequest],
+                            timeRequestProcessing=list(),)
+        routeNodeList.append(newNode)
+    return usingTime
 
-            newNode = RouteNode(idHub=nextHub,
-                                timeCome=timeGoToHub,
-                                timeGo=timeGoToHub,
-                                requestProcessStatus=[statusRequest],
-                                timeRequestProcessing=dict(),)
-            routeNodeList.append(newNode)
 
-    def performTheProcessRequest(self, node: RouteNode, requestList: list) -> bool:
-        """ 
-        Try to update time to delivery or pickup request and time 
-        to go out current hub 
-        """
-        requestProcessStatus = node.requestProcessStatus
-        timeRequestProcessing = node.timeRequestProcessing
-        timeCome = node.timeCome
-        lastTimeAction = node.timeCome
-        for requestStatusIdx in requestProcessStatus:
-            requestInfoDict = requestList[abs(requestStatusIdx)]
-            startProcessTime = 0
-            endProcessTime = 0
-            loadingTime = 0
-
-            if len(timeRequestProcessing) == 0:
-                # is first request process
-                if requestStatusIdx > 0:
-                    # pickUp request
-                    startProcessTime = takeMax(
-                        timeCome, requestInfoDict["pickupTime"][0])
-                    if isSmallerEqualNumber(startProcessTime, requestInfoDict["pickupTime"][1]) is False:
-                        return False
-                    loadingTime = requestInfoDict["pickupLoadingTime"]
-                else:
-                    # delivery request
-                    startProcessTime = takeMax(
-                        timeCome, requestInfoDict["deliveryTime"][0])
-                    if isSmallerEqualNumber(startProcessTime, requestInfoDict["deliveryTime"][1]) is False:
-                        return False
-                    loadingTime = requestInfoDict["deliveryLoadingTime"]
+def performTheProcessRequest(node: RouteNode, requestList: list) -> (bool, int):
+    """ 
+    Try to update time to delivery or pickup request and time 
+    to go out current hub 
+    """
+    usingTime = 0
+    requestProcessStatus = node.requestProcessStatus
+    timeRequestProcessing = node.timeRequestProcessing
+    timeRequestProcessing.clear()
+    timeCome = node.timeCome
+    lastTimeAction = node.timeCome
+    startProcessTime = 0
+    endProcessTime = 0
+    loadingTime = 0
+    waitTime = 0
+    
+    for requestStatusIdx in requestProcessStatus:
+        requestInfoDict = requestList[abs(requestStatusIdx)]
+        if len(timeRequestProcessing) == 0:
+            # is first request process
+            if requestStatusIdx > 0:
+                # pickUp request
+                startProcessTime, waitTime = takeTimeStart(
+                    timeCome, requestInfoDict["pickupTime"][0])
+                if isSmallerEqualNumber(startProcessTime, requestInfoDict["pickupTime"][1]) is False:
+                    return False, 0
+                loadingTime = requestInfoDict["pickupLoadingTime"]
             else:
+                # delivery request
+                startProcessTime, waitTime = takeTimeStart(
+                    timeCome, requestInfoDict["deliveryTime"][0])
+                if isSmallerEqualNumber(startProcessTime, requestInfoDict["deliveryTime"][1]) is False:
+                    return False, 0
+                loadingTime = requestInfoDict["deliveryLoadingTime"]
+        else:
+            lastTimeRequest = timeRequestProcessing[-1][1]
+            if requestStatusIdx > 0:
+                # pickUp request
+                startProcessTime, waitTime = takeTimeStart(
+                    lastTimeRequest, requestInfoDict["pickupTime"][0])
+                if isSmallerEqualNumber(startProcessTime, requestInfoDict["pickupTime"][1]) is False:
+                    return False, 0
+                loadingTime = requestInfoDict["pickupLoadingTime"]
+            else:
+                # delivery request
+                startProcessTime, waitTime = takeTimeStart(
+                    lastTimeRequest, requestInfoDict["deliveryTime"][0])
+                if isSmallerEqualNumber(startProcessTime, requestInfoDict["deliveryTime"][1]) is False:
+                    return False, 0
+                loadingTime = requestInfoDict["deliveryLoadingTime"]
+                
+        usingTime += waitTime
+        endProcessTime = startProcessTime + loadingTime
 
-                lastTimeRequest = lastTimeProcessRequest(timeRequestProcessing)
-                if requestStatusIdx > 0:
-                    # pickUp request
-                    startProcessTime = takeMax(
-                        lastTimeRequest, requestInfoDict["pickupTime"][0])
-                    if isSmallerEqualNumber(startProcessTime, requestInfoDict["pickupTime"][1]) is False:
-                        return False
-                    loadingTime = requestInfoDict["pickupLoadingTime"]
-                else:
-                    # delivery request
-                    startProcessTime = takeMax(
-                        lastTimeRequest, requestInfoDict["deliveryTime"][0])
-                    if isSmallerEqualNumber(startProcessTime, requestInfoDict["deliveryTime"][1]) is False:
-                        return False
-                    loadingTime = requestInfoDict["deliveryLoadingTime"]
-            endProcessTime = startProcessTime + loadingTime
+        timeRequestProcessing.append([startProcessTime, endProcessTime])
+        lastTimeAction = endProcessTime
+    node.timeGo = lastTimeAction
+    return True, usingTime
 
-            timeRequestProcessing[requestStatusIdx] = [
-                startProcessTime, endProcessTime]
-            lastTimeAction = endProcessTime
-        node.timeGo = lastTimeAction
-        return True
 
-    def getNewRoute(self,
-                    vehicleDict: dict,
-                    requestInfoList: list,
-                    candidateRequests: list,
-                    distanceMatrix: list) -> Route:
-        newRoute = Route(list(), vehicleDict, list())
-        self.addFirstNodeRoute(newRoute)
+def getNewRoute(vehicleDict: dict,
+                requestInfoList: list,
+                candidateRequests: list,
+                distanceMatrix: list) -> Route:
+    newRoute = Route(list(), vehicleDict, list())
+    addFirstNodeRoute(newRoute)
 
-        while True:
-            stopCondition = self.addNewRequest(newRoute, vehicleDict, candidateRequests,
-                                               requestInfoList, distanceMatrix)
+    while True:
+        stopCondition = addNewRequest(newRoute, vehicleDict, candidateRequests,
+                                      requestInfoList, distanceMatrix)
 
-            if stopCondition is False:
-                break
-        _, newRoute.routeNodeList = self.checkValidTimePartRoute(newRoute.orderOfRequestProcessed,
-                                                                 newRoute.routeNodeList[-1],
-                                                                 vehicleDict,
-                                                                 requestInfoList,
-                                                                 distanceMatrix)
-        # self.addEndNode(newRoute, distanceMatrix)
-        return newRoute
+        if stopCondition is False:
+            break
+    _, newRoute.routeNodeList, _ = checkValidTimePartRoute(newRoute.orderOfRequestProcessed,
+                                                           newRoute.routeNodeList[-1],
+                                                           vehicleDict,
+                                                           requestInfoList,
+                                                           distanceMatrix)
+    return newRoute
 
-    def main(self,
-             solutionArr: list,
-             dataModel: DataModel,
-             candidateVehicle: list,
-             candidateRequests: list,
-             locationOfVehicle: list,
-             ) -> NoReturn:
-        """ Create new Route through loop"""
 
-        distanceMatrix = dataModel.distanceMatrix
-        vehicleList = dataModel.vehicleList
-        requestList = dataModel.requestList
-        numberOfRoute = 0
-        while True:
-            vehicleDict = self.pickVehicle(
-                candidateVehicle, vehicleList, locationOfVehicle, numberOfRoute)
-            newRoute = self.getNewRoute(vehicleDict,
-                                        requestList,
-                                        candidateRequests,
-                                        distanceMatrix,)
-            solutionArr.append(newRoute)
-            numberOfRoute += 1
-            if len(candidateVehicle) == 0 or len(candidateRequests) == 0:
-                break
+def main(solutionArr: list,
+         dataModel: DataModel,
+         candidateVehicle: list,
+         candidateRequests: list,
+         locationOfVehicle: list,
+         ) -> NoReturn:
+    """ Create new Route through loop"""
 
-    def solve(self, dataModel: DataModel) -> Solution:
-        solutionArr = list()
-        candidateRequests = [i for i in range(1, len(dataModel.requestList))]
-        candidateVehicle = [i for i in range(len(dataModel.vehicleList))]
-        locationOfVehicle = [-1 for _ in range(len(dataModel.vehicleList))]
-        self.main(solutionArr, dataModel, candidateVehicle,
-                  candidateRequests, locationOfVehicle)
-        initialSolution = Solution(solutionArr, locationOfVehicle)
-        initialSolution.updateCostFuction(dataModel)
-        return initialSolution
-    
-    
-    
+    distanceMatrix = dataModel.distanceMatrix
+    vehicleList = dataModel.vehicleList
+    requestList = dataModel.requestList
+    numberOfRoute = 0
+    while True:
+        vehicleDict = pickVehicle(
+            candidateVehicle, vehicleList, locationOfVehicle, numberOfRoute)
+        newRoute = getNewRoute(vehicleDict,
+                               requestList,
+                               candidateRequests,
+                               distanceMatrix,)
+        solutionArr.append(newRoute)
+        numberOfRoute += 1
+        if len(candidateVehicle) == 0 or len(candidateRequests) == 0:
+            break
+
+
+def solve(dataModel: DataModel) -> Solution:
+    solutionArr = list()
+    candidateRequests = [i for i in range(1, len(dataModel.requestList))]
+    candidateVehicle = [i for i in range(len(dataModel.vehicleList))]
+    locationOfVehicle = [-1 for _ in range(len(dataModel.vehicleList))]
+    main(solutionArr, dataModel, candidateVehicle,
+         candidateRequests, locationOfVehicle)
+    initialSolution = Solution(solutionArr, locationOfVehicle)
+    initialSolution.updateCostFuction(dataModel)
+    return initialSolution
+
     # partOfObjective, vnd
-    
-def createLocationOfRequests(tempSol, requestList: list):
+
+
+def createLocationOfRequests(tempSol, requestList: list) -> NoReturn:
     routeList = tempSol.routeList
-    locationOfRequests = [idx for idx in range(1, len(dataModel.requestList))]
+    locationOfRequests = [-1 for _ in range(0, len(requestList) - 1)]
     numberOfRoute = 0
     for routeObject in routeList:
         for order in routeObject.orderOfRequestProcessed:
             locationOfRequests[abs(order)] = numberOfRoute
-        numberOfRoute += 1    
-        
+        numberOfRoute += 1
+    return locationOfRequests
 
-def localSearch(sol, dataModel):    
-    tempSol = sol.__copy__()
-    locationOfRequests = [i for i in range(1, len(dataModel.requestList))]
+    # local search with function is number of request and time
+
+
+def insertRequestToNewRoute(newRequest: int,
+                            route: Route,
+                            requestList: list,
+                            distanceMatrix: list) -> (bool, int):
+    """
+    Insert request to new route if valid
+    """
+
+    pickupStatus = newRequest
+    deliveryStatus = -newRequest
+    routeNodeList = route.routeNodeList
+    vehicleDict = route.vehicleDict
+    orderOfRequestProcessed = route.orderOfRequestProcessed
+
+    usingTime = -1
+    idxDelivery = idxPickUp = -1
+    idxPickUp, _ = findPlaceToInsert(pickupStatus, orderOfRequestProcessed, routeNodeList,
+                                     vehicleDict, requestList, distanceMatrix)
+    if idxPickUp != -1:
+        print(f"idxPickUp: {idxPickUp}")
+        orderOfRequestProcessed.insert(idxPickUp, pickupStatus)
+        # try to insert delivery request
+        idxDelivery, usingTime = findPlaceToInsert(deliveryStatus, orderOfRequestProcessed, routeNodeList,
+                                                   vehicleDict, requestList, distanceMatrix)
+        print(f"idxDelivery: {idxDelivery}")
+        orderOfRequestProcessed.pop(idxPickUp)
+
+    if idxDelivery == -1 or idxPickUp == -1:
+        return False, usingTime
+    orderOfRequestProcessed.insert(idxPickUp, pickupStatus)
+    orderOfRequestProcessed.insert(idxDelivery, -deliveryStatus)
+    route.requestProcess.add(newRequest)
+    return True, usingTime
+
+
+def singlePairedInsertion(tempSol: list, requestList: list, distanceMatrix: list) -> NoReturn:
+    routeList = tempSol.routeList
+    for idxCurentRoute in range(len(routeList)):
+        curentRoute = routeList[idxCurentRoute]
+        for idxAnotherRoute in range(len(routeList)):
+            # print(f"curentRoute: {idxCurentRoute}")
+            # print(f"idxAnotherRoute: {idxAnotherRoute}")
+            if idxCurentRoute == idxAnotherRoute:
+                pass
+            else:
+                anotherRoute = routeList[idxAnotherRoute]
+
+                for request in anotherRoute.requestProcess:
+                    insertCondition, _ = insertRequestToNewRoute(request, curentRoute,
+                                                                 requestList, distanceMatrix)
+                    if insertCondition is True:
+                        anotherRoute.requestProcess.remove(request)
+                        anotherRoute.orderOfRequestProcessed.remove(request)
+                        anotherRoute.orderOfRequestProcessed.remove(-request)
+                        print("Insert complete")
+
+
+def findIdxOfRequestInOrder(request: int, orderOfRequestProcessed: list) -> NoReturn:
+    indexOfOldPickupRequest = orderOfRequestProcessed.index(request)
+    indexOfOldPickupDelivery = orderOfRequestProcessed.index(-request)
+    return indexOfOldPickupRequest, indexOfOldPickupDelivery
+
+
+def deletePairRequestInOrder(indexOfOldPickupRequest: int, indexOfOldPickupDelivery: int,
+                             orderOfRequestProcessed: list) -> NoReturn:
+    orderOfRequestProcessed.pop(indexOfOldPickupRequest)
+    orderOfRequestProcessed.pop(indexOfOldPickupDelivery - 1)
+
+
+def insertRequestToRoute(request: int, indexOfOldPickupRequest: int, indexOfOldPickupDelivery: int,
+                         orderOfRequestProcessed: list, requestProcess: dict) -> NoReturn:
+    requestProcess.add(request)
+    orderOfRequestProcessed.insert(indexOfOldPickupRequest, request)
+    orderOfRequestProcessed.insert(indexOfOldPickupDelivery, -request)
+
+
+def requestExchangeOperator(newRequest: int, oldRequest: int, route: Route,
+                            requestList: list, distanceMatrix: list) -> bool:
+    orderOfRequestProcessed = route.orderOfRequestProcessed
+    indexOfOldPickupRequest, indexOfOldPickupDelivery = findIdxOfRequestInOrder(oldRequest,
+                                                                                orderOfRequestProcessed)
+
+    # temporary delete oldRequest
+    usingTime = -1
+    deletePairRequestInOrder(indexOfOldPickupRequest, indexOfOldPickupDelivery,
+                             orderOfRequestProcessed)
+    insertCondition, usingTime = insertRequestToNewRoute(newRequest, route,
+                                                         requestList, distanceMatrix)
+    route.requestProcess.remove(oldRequest)
+    if insertCondition is False:
+        insertRequestToRoute(oldRequest, indexOfOldPickupRequest, indexOfOldPickupDelivery,
+                             orderOfRequestProcessed, route.requestProcess)
+    return usingTime
+
+
+# def totalUsingTime(firstRoute: Route, secondRoute: Route,) -> int:
+#     firstRouteUsingTime = calculateUsingTime(firstRoute.routeNodeList)
+#     secondRouteUsingTime = calculateUsingTime(secondRoute.routeNodeList)
+#     return firstRouteUsingTime + secondRouteUsingTime
+
+
+def swapRequestInTwoRoute(firstRoute: Route, secondRoute: Route,
+                          requestList: list, distanceMatrix: list) -> bool:
+    stopCondition = False
+    currentUsingTime = totalUsingTime(firstRoute, secondRoute)
+    for request in firstRoute.requestProcess:
+        for secondRouteRequest in secondRoute.requestProcess:
+            usingFirstRouteTime = requestExchangeOperator(secondRouteRequest, request,
+                                                          firstRoute, requestList, distanceMatrix)
+            usingSecondRouteTime = requestExchangeOperator(request, secondRouteRequest,
+                                                           secondRoute, requestList, distanceMatrix)
+        if usingSecondRouteTime + usingFirstRouteTime < currentUsingTime:
+            print(
+                f"Can Swap old using new: {usingSecondRouteTime + usingFirstRouteTime}, old: {currentUsingTime} ")
+            _, firstRoute.routeNodeList = checkValidTimePartRoute(firstRoute.orderOfRequestProcessed,
+                                                                  firstRoute.routeNodeList[-1],
+                                                                  firstRoute.vehicleDict,
+                                                                  requestList,
+                                                                  distanceMatrix)
+            _, firstRoute.routeNodeList = checkValidTimePartRoute(secondRoute.orderOfRequestProcessed,
+                                                                  secondRoute.routeNodeList[-1],
+                                                                  secondRoute.vehicleDict,
+                                                                  requestList,
+                                                                  distanceMatrix)
+            currentUsingTime = totalUsingTime(firstRoute, secondRoute)
+            stopCondition = True
+
+    return stopCondition
+
+
+def swapRequestOperator(tempSol: Solution, requestList: list, distanceMatrix: list) -> NoReturn:
+    routeList = tempSol.routeList
+    stopCondition = True
+    while stopCondition:
+        for idxCurentRoute in range(len(routeList)):
+            currentRoute = routeList[idxCurentRoute]
+            for idxAnotherRoute in range(len(routeList)):
+                # print(f"curentRoute: {idxCurentRoute}")
+                # print(f"idxAnotherRoute: {idxAnotherRoute}")
+                if idxCurentRoute == idxAnotherRoute:
+                    pass
+                else:
+                    # anotherRoute = routeList[idxAnotherRoute]
+                    swapCondition = swapRequestInTwoRoute(currentRoute, routeList[idxAnotherRoute],
+                                                          requestList, distanceMatrix)
+                    if swapCondition is True:
+                        stopCondition = stopCondition
+
+
+def localSearch(sol, dataModel):
+    tempSol = deepcopy(sol)
+    requestList = dataModel.requestList
+    distanceMatrix = dataModel.distanceMatrix
+    updateRequestProcess(tempSol.routeList)
     candidateVehicle = [i for i in range(len(dataModel.vehicleList))]
-    locationOfVehicle = tempSol.locationOfVehicle
-    
-        
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+    locationOfVehicle = tempSol.locationOfVehicle.copy()
+    # locationOfRequests = createLocationOfRequests(
+    #     tempSol, requestList)
+    # print(locationOfRequests)
+    # singlePairedInsertion(tempSol, requestList, distanceMatrix)
+    swapRequestOperator(tempSol, requestList, distanceMatrix)
+    return tempSol
+    # localsearch through route Node
+    # while True:
+
+
 def convertTimeToSecond(dateTime: str) -> int:
     timeList = [int(i) for i in dateTime.split(":")]
     return (timeList[0] * 60 + timeList[1]) * 60 + timeList[2]
@@ -568,28 +685,29 @@ def readInputFile(data: list):
 def writeVehicleNotUse(vehicle: dict):
     time = convertSecondsToHours(vehicle["startTime"])
     print(1)
-    print(f"{vehicle.startHub + 1} {time} {time}")
+    print(f"{vehicle['startIdHub'] + 1} 0 {time} {time}")
 
 
 def writeRoute(route: Route):
     print(len(route.routeNodeList))
     for node in route.routeNodeList:
         print(f"{node.idHub + 1} {len(node.requestProcessStatus)} {convertSecondsToHours(node.timeCome)} {convertSecondsToHours(node.timeGo)}")
-        for request in node.requestProcessStatus:
-            timeProcess = node.timeRequestProcessing[request][0]
-            print(f"{abs(request)} {convertSecondsToHours(timeProcess)}")
+        for idx in range(len(node.requestProcessStatus)):
+        # for request in node.requestProcessStatus:
+        # for timeProcess in timeRequestProcessing[request][0]:
+            print(f"{abs(node.requestProcessStatus[idx])} {convertSecondsToHours(node.timeRequestProcessing[idx][0])}")
 
 
 def writeOutFile(solution: Solution, dataModel: DataModel):
     vehicleList = dataModel.vehicleList
     locationOfVehicle = solution.locationOfVehicle
     routeList = solution.routeList
-    for indexRoute in locationOfVehicle:
-        if indexRoute == -1:
-            writeVehicleNotUse(vehicleList[indexRoute])
+    for idx, locationRoute in enumerate(locationOfVehicle):
+        if locationRoute == -1:
+            writeVehicleNotUse(vehicleList[idx])
         else:
-            writeRoute(routeList[indexRoute])
-
+            writeRoute(routeList[locationRoute])
+            
 
 # data = []
 # while True:
@@ -599,17 +717,50 @@ def writeOutFile(solution: Solution, dataModel: DataModel):
 #     else:
 #         break
 
-with open("data//test_data.txt") as f_obj:
+with open("data//50h_50v_1000r.txt") as f_obj:
     data = [line.strip("\n") for line in f_obj.readlines()]
 
 dataModel = readInputFile(data)
 
 time1 = time.time()
-a = Greedy().solve(dataModel)
+a = solve(dataModel)
+# localSearch(a, dataModel)
 print(time.time()-time1)
 
-print(a.costFuction)
+# for i in a.routeList:
+#     print(i.orderOfRequestProcessed)
+# print(a.costFuction)
 
 # print(dataModel.requestList[113])
+
+# def checkTimeConstraint(route, vehicleList):
+#     for node in route:
+
+# def checkHub(route, requestList):
+#     for node in route.routeNodeList:
+#         for statusRequest in node.requestProcessStatus:
+#             if statusRequest > 0:
+#                 idHub = requestList[abs(statusRequest)]["pickupIdHub"]
+#             else:
+#                 idHub = requestList[abs(statusRequest)]["deliveryIdHub"]
+#             if node.idHub != idHub:
+#                 print(f"wrong hub trueHub: {route.idHub}, currentHub: {idHub}")
+                
+# def test(route):
+#     for node in route.routeNodeList:
+#         if node.idHub == 5:
+#             print(node)           
+                
+# def checkSol(sol: Solution, dataModel):
+#     requestList = dataModel.requestList
+#     # check time constraint
+#     route = sol.routeList
+#     for route in sol.routeList:
+#         checkHub(route, requestList)
+#         test(route)
+# checkSol(a, dataModel)        
+# for 
+# for i in a.routeList:
+#     print(i.orderOfRequestProcessed)
+
 writeOutFile(a, dataModel)
-    
