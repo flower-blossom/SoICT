@@ -1,9 +1,11 @@
 #PYTHON 
+#PYTHON 
 from typing import NoReturn
 from copy import deepcopy
 from random import choice, seed
 import time
 seed(1)
+
 
 def isSmallerEqualNumber(firstNumber: int, secondNumber: int) -> int:
     return firstNumber <= secondNumber
@@ -166,13 +168,10 @@ def addFirstNodeRoute(newRoute: Route,) -> NoReturn:
     newRoute.routeNodeList.append(startVehicleNode)
 
 
-def addEndNode(routeNodeList: list, vehicleInfoDict: dict, distanceMatrix: list) -> int:
+def addEndNode(routeNodeList: list, vehicleInfoDict: dict, distanceMatrix: list, weightToDue=-1) -> int:
     lastNode = routeNodeList[-1]
     startHub = vehicleInfoDict["startIdHub"]
-    timeRequestProcessing = lastNode.timeRequestProcessing
-    lastTime = 0
     if startHub != lastNode.idHub:
-        # create nod to moving new hub
         distance = distanceMatrix[lastNode.idHub][startHub]
         movingTime = estimateTimeMoving(
             distance, vehicleInfoDict["velocity"])
@@ -180,24 +179,19 @@ def addEndNode(routeNodeList: list, vehicleInfoDict: dict, distanceMatrix: list)
         comeBackNode = RouteNode(startHub, timeToComeBackHub, timeToComeBackHub, [],
                                  timeRequestProcessing=dict())
         routeNodeList.append(comeBackNode)
-        lastTime = timeToComeBackHub
+        return weightToDue* (vehicleInfoDict["endTime"] - timeToComeBackHub)     
     else: 
-        if len(timeRequestProcessing) != 0:
-            lastTime = lastNode.timeRequestProcessing[-1][1]
-        else:
-            lastTime = lastNode.timeGo
-    return (vehicleInfoDict["endTime"] - lastTime)
+        return weightToDue*(vehicleInfoDict["endTime"] - lastNode.timeRequestProcessing[-1][1])
 
 
 def checkValidTimePartRoute(nextOrderOfRequest: list, lastNode: RouteNode,
-                            vehicleDict: dict, requestList: list, distanceMatrix: list, 
-                            weightOfWaitTime=1, weightOfMovingTime=1, weightToDue=-1) -> (bool, list):
+                            vehicleDict: dict, requestList: list, distanceMatrix: list) -> (bool, list):
     usingTime = 0
     estimatePartNodeList = [deepcopy(lastNode)]
     endTimeVehicle = vehicleDict["endTime"]
     lastNode = estimatePartNodeList[-1]
     for statusRequest in nextOrderOfRequest:
-        usingTime += weightOfMovingTime * processRequest(statusRequest, lastNode, estimatePartNodeList,
+        usingTime += processRequest(statusRequest, lastNode, estimatePartNodeList,
                                     vehicleDict, requestList, distanceMatrix)
         lastNode = estimatePartNodeList[-1]
         if isSmallerEqualNumber(lastNode.timeGo, endTimeVehicle) is False:
@@ -206,8 +200,8 @@ def checkValidTimePartRoute(nextOrderOfRequest: list, lastNode: RouteNode,
             lastNode, requestList)
         if stopCondition is False:
             return False, None, 0
-        usingTime += weightOfWaitTime * waitTime
-    usingTime += weightToDue* addEndNode(estimatePartNodeList, vehicleDict, distanceMatrix)
+        usingTime += waitTime
+    usingTime += addEndNode(estimatePartNodeList, vehicleDict, distanceMatrix)
 
     return isSmallerEqualNumber(estimatePartNodeList[-1].timeGo, endTimeVehicle), estimatePartNodeList, usingTime
 
@@ -239,38 +233,6 @@ def findPlaceToInsert(statusRequest: int, orderOfRequestProcessed: list,
     return idxToInsert, minUsingTime
 
 
-def findPlaceToRequestInsert(request: int, orderOfRequestProcessed: list,
-                      beforeNode: RouteNode, vehicleDict: dict,
-                      requestList: list, distanceMatrix: list) -> (int, int, int):
-    
-    minUsingTime = float("inf")    
-    idxInsertPickUp, idxInsertDelivery = -1, -1
-    pickupStatus = request
-    deliveryStatus = -request
-    
-    for pickUpIdx in range(len(orderOfRequestProcessed) + 1):
-        if conflictVehicleCapacity(vehicleDict, orderOfRequestProcessed, requestList) is False:
-            orderOfRequestProcessed.insert(pickUpIdx, pickupStatus)
-            for deliveryIdx in range(pickUpIdx + 1, len(orderOfRequestProcessed) + 1):
-                orderOfRequestProcessed.insert(deliveryIdx, deliveryStatus)
-                if conflictVehicleCapacity(vehicleDict, orderOfRequestProcessed, requestList) is False:
-                    conditionRoute, _, usingTime = checkValidTimePartRoute(orderOfRequestProcessed,
-                                                                        beforeNode,
-                                                                        vehicleDict,
-                                                                        requestList,
-                                                                        distanceMatrix)
-                    if conditionRoute is True:
-                        if usingTime < minUsingTime:
-                            minUsingTime = usingTime
-                            idxInsertPickUp = pickUpIdx
-                            idxInsertDelivery = deliveryIdx
-                orderOfRequestProcessed.pop(deliveryIdx)
-        orderOfRequestProcessed.pop(pickUpIdx)
-    return idxInsertPickUp, idxInsertDelivery, minUsingTime
-
-
-
-
 def addNewRequest(route: Route,
                   vehicleDict: dict,
                   requestIndexCandidate: list,
@@ -289,14 +251,23 @@ def addNewRequest(route: Route,
     selectedRequest = -1
     idxInsertPickUp = 0
     idxInsertDelivery = 0
-    beforeNode = routeNodeList[-1]
-    
+
     for requestIdx in requestIndexCandidate:
+        pickupStatus = requestIdx
+        deliveryStatus = -requestIdx
+
         # try to insert pickup request
-        # beforeNode = routeNodeList[-1]
-        idxPickUp, idxDelivery, cost = findPlaceToRequestInsert(requestIdx, orderOfRequestProcessed, beforeNode,
+        beforeNode = routeNodeList[-1]
+        idxPickUp, _ = findPlaceToInsert(pickupStatus, orderOfRequestProcessed, beforeNode,
                                          vehicleDict, requestList, distanceMatrix)
-        if idxPickUp != -1 and idxDelivery != -1:
+        if idxPickUp != -1:
+            orderOfRequestProcessed.insert(idxPickUp, pickupStatus)
+            # try to insert delivery request
+            beforeNode = routeNodeList[-1]            
+            idxDelivery, cost = findPlaceToInsert(deliveryStatus, orderOfRequestProcessed, beforeNode,
+                                                  vehicleDict, requestList, distanceMatrix)
+            # print(cost)
+            orderOfRequestProcessed.pop(idxPickUp)
             if cost < minCost:
                 selectedRequest = requestIdx
                 idxInsertPickUp = idxPickUp
@@ -316,8 +287,7 @@ def processRequest(statusRequest: int,
                    routeNodeList: list,
                    vehicleInfoDict: dict,
                    requestList: list,
-                   distanceMatrix: list,
-                   ) -> int:
+                   distanceMatrix: list) -> int:
     """
     Create node to process request
     """
@@ -340,7 +310,7 @@ def processRequest(statusRequest: int,
         movingTime = estimateTimeMoving(
             distance, vehicleInfoDict["velocity"])
         timeGoToHub = lastNode.timeGo + movingTime
-        usingTime += movingTime
+        usingTime += timeGoToHub
         newNode = RouteNode(idHub=nextHub,
                             timeCome=timeGoToHub,
                             timeGo=timeGoToHub,
@@ -366,6 +336,7 @@ def performTheProcessRequest(node: RouteNode, requestList: list) -> (bool, int):
     endProcessTime = 0
     loadingTime = 0
     waitTime = 0
+
     for requestStatusIdx in requestProcessStatus:
         requestInfoDict = requestList[abs(requestStatusIdx)]
         if len(timeRequestProcessing) == 0:
@@ -401,12 +372,13 @@ def performTheProcessRequest(node: RouteNode, requestList: list) -> (bool, int):
                     return False, 0
                 loadingTime = requestInfoDict["deliveryLoadingTime"]
 
+        usingTime += waitTime
         endProcessTime = startProcessTime + loadingTime
 
         timeRequestProcessing.append([startProcessTime, endProcessTime])
         lastTimeAction = endProcessTime
     node.timeGo = lastTimeAction
-    return True, waitTime
+    return True, usingTime
 
 
 def getNewRoute(vehicleDict: dict,
@@ -473,7 +445,6 @@ def solve(dataModel: DataModel) -> Solution:
     initialSolution = Solution(solutionArr, locationOfVehicle)
     initialSolution.updateCostFuction(dataModel)
     return initialSolution
-
 
 
 def convertTimeToSecond(dateTime: str) -> int:
@@ -586,7 +557,7 @@ def writeOutFile(solution: Solution, dataModel: DataModel):
 #     else:
 #         break
 
-with open("data//10h_15v_100r.txt") as f_obj:
+with open("data//50h_50v_1000r.txt") as f_obj:
     data = [line.strip("\n") for line in f_obj.readlines()]
 
 dataModel = readInputFile(data)
@@ -596,5 +567,3 @@ a = solve(dataModel)
 # localSearch(a, dataModel)
 print(time.time()-time1)
 print(a.costFuction)
-
-# writeOutFile(a, dataModel)

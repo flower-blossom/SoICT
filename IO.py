@@ -45,7 +45,7 @@ def createInfoRequest(requestInfo: str) -> dict:
     return infoDict
 
 
-def readInputFile(data: list[str]):
+def readInputFile(data: RouteNode[str]):
     """ Read data file txt`
 
     Args:
@@ -65,7 +65,7 @@ def readInputFile(data: list[str]):
 
     for hubNumber in range(currentIndex, currentIndex + numberOfHub):
         arr = data[hubNumber]
-        distanceMatrix.append(list(map(int, arr.split())))
+        distanceMatrix.append(RouteNode(map(int, arr.split())))
     distanceMatrix = np.array(distanceMatrix)
     currentIndex += numberOfHub
 

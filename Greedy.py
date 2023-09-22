@@ -10,7 +10,7 @@ from random import choice
 
 # def estimateFesibleRoute(routeNode : Route, ) -> bool:
 
-def conflictVehicleCapacity(vehicleDict: dict, sequenceRequestProcessed: int, requestList: list) -> bool:
+def conflictVehicleCapacity(vehicleDict: dict, sequenceRequestProcessed: int, requestList: RouteNode) -> bool:
     vehicleCapacity = vehicleDict["capacity"]
     vehicleVolume = vehicleDict["volume"]
     currentCapacity = 0
@@ -34,7 +34,7 @@ def estimateTimeMoving(distance: int, velocity: int) -> int:
 
 
 def estimateFesiableOfNew(startNode: RouteNode,
-                          sequenceRequestProcessed: list[int],
+                          sequenceRequestProcessed: RouteNode[int],
                           vehicleOfRoute: dict) -> bool:
 
     return True
@@ -76,9 +76,9 @@ class Greedy:
         pass
 
     def pickVehicle(self,
-                    candidateVehicle: list[int],
-                    vehicleList: list[dict],
-                    locationOfVehicle: list,
+                    candidateVehicle: RouteNode[int],
+                    vehicleList: RouteNode[dict],
+                    locationOfVehicle: RouteNode,
                     numberOfRoute: int) -> dict:
         vehiclePicked = choice(candidateVehicle)
         candidateVehicle.remove(vehiclePicked)
@@ -95,7 +95,7 @@ class Greedy:
                                      timeRequestProcessing=dict(),)
         newRoute.routeNodeList.append(startVehicleNode)
 
-    def addEndNode(self, routeNodeList: list, vehicleInfoDict: dict, distanceMatrix: ndarray) -> NoReturn:
+    def addEndNode(self, routeNodeList: RouteNode, vehicleInfoDict: dict, distanceMatrix: ndarray) -> NoReturn:
         lastNode = routeNodeList[-1]
         startHub = vehicleInfoDict["startIdHub"]
         if startHub != lastNode.idHub:
@@ -107,8 +107,8 @@ class Greedy:
                                      timeRequestProcessing=dict())
             routeNodeList.append(comeBackNode)
 
-    def checkValidTimePartRoute(self, nextOrderOfRequest: list, lastNode: RouteNode,
-                                vehicleDict: dict, requestList: list, distanceMatrix: list) -> (bool, list):
+    def checkValidTimePartRoute(self, nextOrderOfRequest: RouteNode, lastNode: RouteNode,
+                                vehicleDict: dict, requestList: RouteNode, distanceMatrix: RouteNode) -> (bool, RouteNode):
 
         tempRoute = [deepcopy(lastNode)]
         endTimeVehicle = vehicleDict["endTime"]
@@ -127,7 +127,7 @@ class Greedy:
         #                         vehicleDict, requestList, distanceMatrix)
         return isSmallerEqualNumber(tempRoute[-1].timeGo, endTimeVehicle), tempRoute
 
-    def calculateWaitTime(self, routeNodeList: list) -> int:
+    def calculateWaitTime(self, routeNodeList: RouteNode) -> int:
         """ Return time using vehicle"""
 
         # routeNodeList = route.routeNodeList
@@ -147,8 +147,8 @@ class Greedy:
 
     def findPlaceToInsert(self,
                           statusRequest: int,
-                          orderOfRequestProcessed: list,
-                          routeNodeList: RouteNode, vehicleDict: dict, requestList: list, distanceMatrix: list):
+                          orderOfRequestProcessed: RouteNode,
+                          routeNodeList: RouteNode, vehicleDict: dict, requestList: RouteNode, distanceMatrix: RouteNode):
         lastNode = routeNodeList[-1]
         minUsingTime = float("inf")
         idxToInsert = -1
@@ -177,8 +177,8 @@ class Greedy:
     def addNewRequest(self,
                       route: Route,
                       vehicleDict: dict,
-                      requestIndexCandidate: list[int],
-                      requestList: list,
+                      requestIndexCandidate: RouteNode[int],
+                      requestList: RouteNode,
                       distanceMatrix: ndarray) -> bool:
         """
         try to add new request 
@@ -220,9 +220,9 @@ class Greedy:
     def processRequest(self,
                        statusRequest: int,
                        lastNode: RouteNode,
-                       routeNodeList: list[RouteNode],
+                       routeNodeList: RouteNode[RouteNode],
                        vehicleInfoDict: dict,
-                       requestList: list[dict],
+                       requestList: RouteNode[dict],
                        distanceMatrix: ndarray) -> NoReturn:
         """
         Create node to process request
@@ -254,7 +254,7 @@ class Greedy:
                                 timeRequestProcessing=dict(),)
             routeNodeList.append(newNode)
 
-    def performTheProcessRequest(self, node: RouteNode, requestList: list[dict]) -> bool:
+    def performTheProcessRequest(self, node: RouteNode, requestList: RouteNode[dict]) -> bool:
         """ 
         Try to update time to delivery or pickup request and time 
         to go out current hub 
@@ -343,10 +343,10 @@ class Greedy:
 
     def getNewRoute(self,
                     vehicleDict: dict,
-                    requestInfoList: list[dict],
-                    candidateRequests: list[int],
+                    requestInfoList: RouteNode[dict],
+                    candidateRequests: RouteNode[int],
                     distanceMatrix: ndarray) -> Route:
-        newRoute = Route(list(), vehicleDict, list())
+        newRoute = Route(RouteNode(), vehicleDict, RouteNode())
         self.addFirstNodeRoute(newRoute)
 
         while True:
@@ -364,11 +364,11 @@ class Greedy:
         return newRoute
 
     def main(self,
-             solutionArr: list[Route],
+             solutionArr: RouteNode[Route],
              dataModel: DataModel,
-             candidateVehicle: list[int],
-             candidateRequests: list[int],
-             locationOfVehicle: list[int],
+             candidateVehicle: RouteNode[int],
+             candidateRequests: RouteNode[int],
+             locationOfVehicle: RouteNode[int],
              ) -> NoReturn:
         """ Create new Route through loop"""
 
@@ -389,7 +389,7 @@ class Greedy:
                 break
 
     def solve(self, dataModel: DataModel) -> Solution:
-        solutionArr: list[Route] = list()
+        solutionArr: RouteNode[Route] = RouteNode()
         candidateRequests = [i for i in range(1, len(dataModel.requestList))]
         candidateVehicle = [i for i in range(len(dataModel.vehicleList))]
         locationOfVehicle = [-1 for _ in range(len(dataModel.vehicleList))]
